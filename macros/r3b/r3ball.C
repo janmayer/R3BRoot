@@ -73,14 +73,7 @@ void r3ball(Int_t nEvents = 1,
   run->SetOutputFile(OutFile.Data());          // Output file
   FairRuntimeDb* rtdb = run->GetRuntimeDb();
   
-  //  R3B Special Physics List in G4 case
-  if ( (fUserPList  == kTRUE ) &&
-      (fMC.CompareTo("TGeant4")   == 0)) {
-    run->SetUserConfig("g4R3bConfig.C");
-    run->SetUserCuts("SetR3BCuts.C");
-  }
-  
-  
+ 
   // -----   Create media   -------------------------------------------------
   run->SetMaterials("media_r3b.geo");       // Materials
   
