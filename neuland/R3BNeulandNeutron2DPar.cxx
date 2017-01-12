@@ -81,6 +81,13 @@ std::map<UInt_t, TCutG*> R3BNeulandNeutron2DPar::GetNeutronCuts() const
     return map;
 }
 
+TCutG* R3BNeulandNeutron2DPar::GetNeutronCut(const Int_t n) const
+{
+    return GetNeutronCuts().at(n);
+}
+
+
+
 UInt_t R3BNeulandNeutron2DPar::GetNeutronMultiplicity(const Double_t energy, const Double_t nClusters) const
 {
     // Note: it might be better to implement std::map as a member and sync between the tmap for this type of usage.

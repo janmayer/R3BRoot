@@ -5,16 +5,17 @@ set(LINKDEF NeulandReconstructionLinkDef.h)
 set(SRCS
 	R3BNeulandNeutronReconstruction.cxx
 	R3BNeulandNeutronReconstructionMon.cxx
+	R3BNeulandNeutronClusters.cxx
 	ReconstructionEngine.cxx
-	Reconstruction2DCalibr.cxx
-	ReconstructionEGate.cxx
-	# ReconstructionNeuralNetworkMultiplicity.cxx
+	IsElastic.cxx
+	ReconstructionOperation.cxx
 )
 change_file_extension(*.cxx *.h HEADERS "${SRCS}")
 
 
 find_package(Protobuf REQUIRED)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS neuland.proto)
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS neuland_clusters.proto)
 #protobuf_generate_python(PROTO_PY neuland.proto)
 set(SRCS ${SRCS} ${PROTO_SRCS})
 set(HEADERS ${HEADERS} ${PROTO_HDRS})
@@ -23,7 +24,10 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 
 set(DEPENDENCIES
-  R3BData ${PROTOBUF_LIBRARY} FairMQ
+	R3BNeulandShared
+	R3BData
+	${PROTOBUF_LIBRARY}
+	FairMQ
 )
 
 
@@ -39,6 +43,7 @@ include_directories(SYSTEM ${SYSTEM_INCLUDE_DIRECTORIES})
 
 set(INCLUDE_DIRECTORIES
 	${R3BROOT_SOURCE_DIR}/neuland
+	${R3BROOT_SOURCE_DIR}/neuland/shared
 	${R3BROOT_SOURCE_DIR}/neuland/reconstruction
 	${R3BROOT_SOURCE_DIR}/r3bdata/
 	${R3BROOT_SOURCE_DIR}/r3bdata/neulandData
@@ -52,5 +57,6 @@ set(LINK_DIRECTORIES
 	${FAIRROOT_LIBRARY_DIR}
 )
 link_directories(${LINK_DIRECTORIES})
+
 
 generate_library()

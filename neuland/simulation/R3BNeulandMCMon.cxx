@@ -3,13 +3,13 @@
 #include <iostream>
 #include <string>
 
+#include "TDirectory.h"
 #include "TH1D.h"
 #include "TH2D.h"
 #include "TH3D.h"
-#include "TDirectory.h"
 
-#include "FairRootManager.h"
 #include "FairLogger.h"
+#include "FairRootManager.h"
 
 R3BNeulandMCMon::R3BNeulandMCMon(const Option_t* option)
     : FairTask("R3B NeuLAND Neuland Monte Carlo Monitor")
@@ -28,9 +28,17 @@ R3BNeulandMCMon::R3BNeulandMCMon(const Option_t* option)
     {
         fIs3DTrackEnabled = false;
     }
-}
 
-R3BNeulandMCMon::~R3BNeulandMCMon() {}
+    if (opt.Contains("FULLSIMANA"))
+    {
+        fIsFullSimAnaEnabled = true;
+        LOG(INFO) << "... with full simulation neutron reaction product analysis" << FairLogger::endl;
+    }
+    else
+    {
+        fIsFullSimAnaEnabled = false;
+    }
+}
 
 InitStatus R3BNeulandMCMon::Init()
 {
@@ -89,6 +97,17 @@ InitStatus R3BNeulandMCMon::Init()
 
     fhnNPNIPs = new TH1D("fhnNPNIPs", "Number of NPNIPs per event", 10, -0.5, 9.5);
 
+    fhnProducts = new TH1D("nProducts", "Number of products created by primary neutron interaction", 20, -0.5, 19.5);
+    fhnProductsCharged =
+        new TH1D("nProductsCharged",
+                 "Number of products created by primary neutron interaction w/o gammas, neutrons, pion0",
+                 20,
+                 -0.5,
+                 19.5);
+    fhSumProductEnergy = new TH1D("SumProductEnergy", "Sum product energy", 1000, 0, 1000);
+    fhnSecondaryNeutrons = new TH1D("NumberSecondaryNeutrons", "Number of Secondary Neutrons", 10, -0.5, 9.5);
+    fhnSecondaryProtons = new TH1D("NumberSecondaryProtons", "Number of Secondary Protons", 10, -0.5, 9.5);
+
     if (fIs3DTrackEnabled)
     {
         // XYZ -> ZXY (side view)
@@ -119,13 +138,13 @@ void R3BNeulandMCMon::Exec(Option_t*)
             // Distribution of MC Track mother id's
             fhMotherIDs->Fill(mcTrack->GetMotherId());
 
-            // Energy of Inital Particles
+            // Energy of primary Particles
             if (mcTrack->GetMotherId() == -1)
             {
                 fhEPrimarys->Fill(GetKineticEnergy(mcTrack));
             }
 
-            // Energy of Inital Neutrons
+            // Energy of primary Neutrons
             if (IsPrimaryNeutron(mcTrack))
             {
                 fhEPrimaryNeutrons->Fill(GetKineticEnergy(mcTrack));
@@ -192,7 +211,7 @@ void R3BNeulandMCMon::Exec(Option_t*)
                 fhPDG->Fill(mcTrack->GetPdgCode());
                 fhPrimaryDaughterIDs->Fill(point->GetTrackID());
 
-                // Buld Histograms for each particle PDG if it donst exist
+                // Buld Histograms for each particle PDG if it doesn't exist
                 if (!fhmEPdg[mcTrack->GetPdgCode()])
                 {
                     TString name = TString("Light Yield of PID ") + TString::Itoa(mcTrack->GetPdgCode(), 10) +
@@ -241,6 +260,129 @@ void R3BNeulandMCMon::Exec(Option_t*)
         }
     }
 
+    {
+        std::vector<int> primaryNeutronIDs;
+        std::map<int, std::vector<R3BMCTrack*>> tracksByPrimaryNeutronID;
+
+        const Int_t nTracks = fMCTracks->GetEntries();
+        for (Int_t j = 0; j < nTracks; j++)
+        {
+            R3BMCTrack* track = (R3BMCTrack*)fMCTracks->At(j);
+            if (track->GetMotherId() == -1 && track->GetPdgCode() == 2112)
+            {
+                primaryNeutronIDs.push_back(j);
+            }
+        }
+
+        for (Int_t j = 0; j < nTracks; j++)
+        {
+            R3BMCTrack* track = (R3BMCTrack*)fMCTracks->At(j);
+            for (const Int_t primaryNeutronID : primaryNeutronIDs)
+            {
+                if (track->GetMotherId() == primaryNeutronID)
+                {
+                    tracksByPrimaryNeutronID[primaryNeutronID].push_back(track);
+                }
+            }
+        }
+
+        for (const Int_t primaryNeutronID : primaryNeutronIDs)
+        {
+            auto& tracks = tracksByPrimaryNeutronID[primaryNeutronID];
+            fhnProducts->Fill(tracks.size());
+
+            fhnProductsCharged->Fill(
+                std::accumulate(tracks.begin(), tracks.end(), 0, [](const int a, const R3BMCTrack* b) {
+                    if (b->GetPdgCode() == 2112 || b->GetPdgCode() == 22 || b->GetPdgCode() == 111)
+                    {
+                        return a;
+                    }
+                    else
+                    {
+                        return a + 1;
+                    }
+                }));
+
+            fhnSecondaryNeutrons->Fill(
+                std::accumulate(tracks.begin(), tracks.end(), 0, [](const int c, const R3BMCTrack* t) {
+                    if (t->GetPdgCode() == 2112)
+                    {
+                        return c + 1;
+                    }
+                    return c;
+                }));
+
+            fhnSecondaryProtons->Fill(
+                std::accumulate(tracks.begin(), tracks.end(), 0, [](const int c, const R3BMCTrack* t) {
+                    if (t->GetPdgCode() == 2212)
+                    {
+                        return c + 1;
+                    }
+                    return c;
+                }));
+
+            const Double_t sumProductEnergy =
+                std::accumulate(tracks.begin(), tracks.end(), 0., [](const Double_t a, const R3BMCTrack* b) {
+                    return a + 1000. * (b->GetEnergy() - b->GetMass());
+                });
+
+            fhSumProductEnergy->Fill(sumProductEnergy);
+
+            if (fIsFullSimAnaEnabled)
+            {
+                for (const auto& track : tracks)
+                {
+                    auto& hEnergy = fhmEnergyByProductPdg[track->GetPdgCode()];
+                    if (hEnergy == nullptr)
+                    {
+                        hEnergy = new TH1D(TString::Itoa(track->GetPdgCode(), 10),
+                                           TString::Itoa(track->GetPdgCode(), 10),
+                                           1000,
+                                           0,
+                                           1000);
+                    }
+                    hEnergy->Fill(1000. * (track->GetEnergy() - track->GetMass()));
+                }
+
+                std::sort(tracks.begin(), tracks.end(), [](const R3BMCTrack* a, const R3BMCTrack* b) {
+                    return a->GetPdgCode() < b->GetPdgCode();
+                });
+
+                // std::vector<int> filteredPdgCodes{ 22, -211, 211, 111 };
+                std::vector<int> filteredPdgCodes{ 22, 111 };
+                const TString reaction = std::accumulate(
+                    tracks.begin(), tracks.end(), TString(), [&](TString& s, const R3BMCTrack* b) -> TString& {
+                        if (std::find(filteredPdgCodes.begin(), filteredPdgCodes.end(), b->GetPdgCode()) !=
+                            filteredPdgCodes.end())
+                        {
+                            return s;
+                        }
+                        return s += "_" + TString::Itoa(b->GetPdgCode(), 10);
+                    });
+
+                if (fhmEnergyByReaction[reaction] == nullptr)
+                {
+                    fhmEnergyByReaction[reaction] = new TH1D(reaction, reaction, 1000, 0, 1000);
+                }
+                fhmEnergyByReaction[reaction]->Fill(sumProductEnergy);
+
+                for (const auto& track : tracks)
+                {
+                    auto& hEnergy = fhmmEnergyByReactionByProductPdg[reaction][track->GetPdgCode()];
+                    if (hEnergy == nullptr)
+                    {
+                        hEnergy = new TH1D(TString::Itoa(track->GetPdgCode(), 10) + reaction,
+                                           TString::Itoa(track->GetPdgCode(), 10) + reaction,
+                                           1000,
+                                           0,
+                                           1000);
+                    }
+                    hEnergy->Fill(1000. * (track->GetEnergy() - track->GetMass()));
+                }
+            }
+        }
+    }
+
     if (fIs3DTrackEnabled)
     {
         // For 3D Vis
@@ -283,17 +425,87 @@ void R3BNeulandMCMon::Finish()
     fhNPNIPSxy->Write();
     fhnNPNIPs->Write();
 
+    gDirectory = tmp;
+    gDirectory->cd("NeulandMCMon");
+    gDirectory->mkdir("LightYield");
+    gDirectory->cd("LightYield");
+
+    gDirectory->mkdir("LightYieldByProductPdg");
+    gDirectory->cd("LightYieldByProductPdg");
     for (const auto& kv : fhmEPdg)
     {
         kv.second->Write();
     }
+    gDirectory->cd("..");
+
+    gDirectory->mkdir("SumLightYieldByProductPdg");
+    gDirectory->cd("SumLightYieldByProductPdg");
     for (const auto& kv : fhmEtotPdg)
     {
         kv.second->Write();
     }
+    gDirectory->cd("..");
+
+    gDirectory->mkdir("RelSumLightYieldByProductPdg");
+    gDirectory->cd("RelSumLightYieldByProductPdg");
     for (const auto& kv : fhmEtotPdgRel)
     {
         kv.second->Write();
+    }
+    gDirectory->cd("..");
+
+    gDirectory = tmp;
+    gDirectory->cd("NeulandMCMon");
+    gDirectory->mkdir("Products");
+    gDirectory->cd("Products");
+
+    fhnProducts->Write();
+    fhnProductsCharged->Write();
+    fhSumProductEnergy->Write();
+    fhnSecondaryProtons->Write();
+    fhnSecondaryNeutrons->Write();
+
+    if (fhmEnergyByProductPdg.size() > 0)
+    {
+        std::cout << "By Product:" << std::endl;
+        gDirectory->mkdir("EnergyByProductPdg");
+        gDirectory->cd("EnergyByProductPdg");
+        for (const auto& kv : fhmEnergyByProductPdg)
+        {
+            std::cout << kv.first << ":\t" << kv.second->GetEntries() << std::endl;
+            kv.second->Write();
+        }
+        gDirectory->cd("..");
+    }
+
+    if (fhmEnergyByReaction.size() > 0)
+    {
+        std::cout << "By Reaction:" << std::endl;
+        gDirectory->mkdir("EnergyByReaction");
+        gDirectory->cd("EnergyByReaction");
+        for (const auto& kv : fhmEnergyByReaction)
+        {
+            std::cout << kv.first << ":\t" << kv.second->GetEntries() << std::endl;
+            kv.second->Write();
+        }
+        gDirectory->cd("..");
+    }
+
+    if (fhmmEnergyByReactionByProductPdg.size() > 0)
+    {
+        gDirectory->mkdir("EnergyByReactionByProductPdg");
+        gDirectory->cd("EnergyByReactionByProductPdg");
+        for (const auto& kv : fhmmEnergyByReactionByProductPdg)
+        {
+            gDirectory->mkdir(kv.first);
+            gDirectory->cd(kv.first);
+            for (const auto& kv2 : kv.second)
+            {
+                kv2.second->Write();
+            }
+            gDirectory->cd("..");
+        }
+        gDirectory->cd("..");
     }
 
     gDirectory = tmp;

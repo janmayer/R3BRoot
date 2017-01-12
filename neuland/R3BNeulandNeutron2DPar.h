@@ -32,6 +32,7 @@ class R3BNeulandNeutron2DPar : public FairParGenericSet
     void printParams();               // override
 
     std::map<UInt_t, TCutG*> GetNeutronCuts() const;
+    TCutG* GetNeutronCut(const Int_t n) const;
     void SetNeutronCuts(const std::map<UInt_t, TCutG*>& cuts);
     UInt_t GetNeutronMultiplicity(const Double_t energy, const Double_t nClusters) const;
 

@@ -70,6 +70,7 @@ class R3BNeulandDigi : public TObject
     void SetPosition(const TVector3& position) { fPosition = position; }
     TVector3 GetPosition() const { return fPosition; }
 
+    Double_t GetBeta() const;
     Double_t GetEToF(const Double_t mass = 939.565379) const;
 
   protected:

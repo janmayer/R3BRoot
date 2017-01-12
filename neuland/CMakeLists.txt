@@ -3,6 +3,8 @@ if(ROOT_VERSION_MAJOR GREATER 5)
 	add_subdirectory(reconstruction)
 	add_subdirectory(clustering)
 	add_subdirectory(digitizing)
+	add_subdirectory(simulation)
+	add_subdirectory(shared)
 else(ROOT_VERSION_MAJOR GREATER 5)
 	message(WARNING "Not building important NeuLAND modules because ROOT is too old. Upgrade to ROOT6, muppet!")
 endif(ROOT_VERSION_MAJOR GREATER 5)
@@ -11,11 +13,9 @@ set(LIBRARY_NAME R3BNeuland)
 set(LINKDEF NeulandLinkDef.h)
 
 set(SRCS
-	R3BNeuland.cxx
 	R3BNeulandNeutron2DPar.cxx
 	R3BNeulandGeoPar.cxx
 	R3BNeulandContFact.cxx
-	R3BNeulandMCMon.cxx
 	R3BNeulandVisualizer.cxx
 	unpack/R3BNeulandTcalFill.cxx
 	unpack/R3BNeulandTcal.cxx

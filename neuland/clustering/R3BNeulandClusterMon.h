@@ -14,6 +14,7 @@
 #include <vector>
 #include "FairTask.h"
 #include "R3BNeulandCluster.h"
+#include "Filterable.h"
 
 class TClonesArray;
 class TH1D;
@@ -27,6 +28,8 @@ class R3BNeulandClusterMon : public FairTask
                          const TString output = "NeulandClusterMon",
                          const Option_t* option = "");
     ~R3BNeulandClusterMon();
+
+    void AddFilter(const Filterable<R3BNeulandCluster*>::Filter f) { fClusterFilters.Add(f); }
 
   private:
     // No copy and no move is allowed (Rule of three/five)
@@ -43,14 +46,10 @@ class R3BNeulandClusterMon : public FairTask
     void Exec(Option_t*) override;
 
   private:
-    void Reset();
-
-  private:
     TString fInput;
     TString fOutput;
 
     TClonesArray* fNeulandClusters; // non-owning
-    std::vector<R3BNeulandCluster> fVectorClusters;
 
     Bool_t fIs3DTrackEnabled;
     TH3D* fh3;
@@ -65,6 +64,8 @@ class R3BNeulandClusterMon : public FairTask
     TH2D* fhClusterEToFVSTime;
     TH2D* fhClusterEVSTime;
 
+    TH2D* fhElasticTargetMass;
+
     TH2D* fhClusterForemostMinusCentroidVSEnergy;
     TH2D* fhClusterForemostMinusMaxEnergyDigiPosVSEnergy;
 
@@ -72,6 +73,19 @@ class R3BNeulandClusterMon : public FairTask
     TH2D* fhClusterMaxEnergyDigiMinusFirstDigiPosVSEnergy;
     TH2D* fhClusterMaxEnergyDigiMinusCentroidVSEnergy;
     TH2D* fhClusterEnergyMomentVSEnergy;
+    TH2D* fhClusterEnergyMomentVSClusterSize;
+    TH1D* fhClusterEnergyMoment;
+    TH1D* fhClusterMaxEnergyDigiMinusFirstDigiMag;
+
+    TH2D* fhEToFVSEelastic;
+    TH2D* fhScatteredNEnergyVSAngle;
+    TH2D* fhScatteredNEnergyVSEdep;
+    TH2D* fhScatterAngleVSRecoilAngle;
+    TH2D* fhSumAngleVSRatioErecoEtof;
+    TH2D* fhClusterEnergyVSScatteredRecoilAngle;
+    TH2D* fhClusterEnergyVSScatteredNeutronAngle;
+
+    Filterable<R3BNeulandCluster*> fClusterFilters;
 
   public:
     ClassDefOverride(R3BNeulandClusterMon, 0);

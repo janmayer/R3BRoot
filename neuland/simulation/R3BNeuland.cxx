@@ -1,21 +1,21 @@
 #include "R3BNeuland.h"
 
-#include "R3BNeulandPoint.h"
-#include "R3BNeulandPixel.h"
-#include "R3BNeulandGeoPar.h"
 #include "R3BMCStack.h"
+#include "R3BNeulandGeoPar.h"
+#include "R3BNeulandPixel.h"
+#include "R3BNeulandPoint.h"
 
+#include "FairMCPoint.h"
 #include "FairRun.h"
 #include "FairRuntimeDb.h"
-#include "FairMCPoint.h"
 
 #include "TClonesArray.h"
 #include "TObjArray.h"
 #include "TParticle.h"
 #include "TVirtualMC.h"
 
-#include "TGeoManager.h"
 #include "TGeoBBox.h"
+#include "TGeoManager.h"
 
 // Initialize variables from Birk' s Law
 static constexpr Double_t BirkdP = 1.032;

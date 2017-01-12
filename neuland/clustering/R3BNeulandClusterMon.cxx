@@ -1,18 +1,19 @@
 #include "R3BNeulandClusterMon.h"
 
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 #include <numeric>
 
 #include "TClonesArray.h"
+#include "TDirectory.h"
 #include "TH1D.h"
 #include "TH2D.h"
 #include "TH3D.h"
-#include "TDirectory.h"
 
-#include "FairRootManager.h"
 #include "FairLogger.h"
+#include "FairRootManager.h"
 
+#include "ElasticScattering.h"
 #include "R3BNeulandCluster.h"
 
 R3BNeulandClusterMon::R3BNeulandClusterMon(const TString input, const TString output, const Option_t* option)
@@ -157,9 +158,42 @@ InitStatus R3BNeulandClusterMon::Init()
     fhClusterMaxEnergyDigiMinusCentroidVSEnergy->GetYaxis()->SetTitle("Cluster Energy [MeV]");
 
     fhClusterEnergyMomentVSEnergy =
-        new TH2D("ClusterEnergyMomentVSEnergy", "Cluster Energy Moment VS Energy", 101, 0, 100, 60, 0, 600);
+        new TH2D("ClusterEnergyMomentVSEnergy", "Cluster Energy Moment VS Energy", 100, 0, 100, 60, 0, 600);
     fhClusterEnergyMomentVSEnergy->GetXaxis()->SetTitle("|#vec{EM}| [cm]");
     fhClusterEnergyMomentVSEnergy->GetYaxis()->SetTitle("Cluster Energy [MeV]");
+
+    fhClusterEnergyMoment = new TH1D("ClusterEnergyMoment", "Cluster Energy Moment", 100, 0, 100);
+    fhClusterMaxEnergyDigiMinusFirstDigiMag =
+        new TH1D("ClusterMaxEnergyDigiMinusFirstDigiMag", "ClusterMaxEnergyDigiMinusFirstDigiMag", 100, 0, 1000);
+
+    fhClusterEnergyMomentVSClusterSize =
+        new TH2D("ClusterEnergyMomentVSClusterSize", "Cluster Energy Moment VS Cluster Size", 100, 0, 100, 30, 0, 30);
+
+
+    fhEToFVSEelastic = new TH2D("EToFVSEelastic", "EToFVSEelastic", 50, 0, 1000, 50, 10, 1000);
+    fhScatteredNEnergyVSAngle = new TH2D("ScatteredNEnergyVSAngle", "ScatteredNEnergyVSAngle", 50, 0, 1000, 50, 0, 3.2);
+    fhScatteredNEnergyVSEdep = new TH2D("ScatteredNEnergyVSEdep", "ScatteredNEnergyVSEdep", 100, 0, 1000, 100, 0, 1000);
+
+    fhScatterAngleVSRecoilAngle =
+        new TH2D("ScatterAngleVSRecoilAngle", "ScatterAngleVSRecoilAngle", 50, 0, 3.2, 50, 0, 3.2);
+
+    fhSumAngleVSRatioErecoEtof = new TH2D("SumAngleVSRatioErecoEtof", "SumAngleVSRatioErecoEtof", 50, 0, 3.2, 50, 0, 2);
+    fhClusterEnergyVSScatteredRecoilAngle =
+        new TH2D("ClusterEnergyVSScatteredRecoilAngle", "ClusterEnergyVSScatteredRecoilAngle", 50, 0, 1000, 50, 0, 3.2);
+    fhClusterEnergyVSScatteredNeutronAngle = new TH2D(
+        "ClusterEnergyVSScatteredNeutronAngle", "ClusterEnergyVSScatteredNeutronAngle", 50, 0, 1000, 50, 0, 3.2);
+
+    fhElasticTargetMass = new TH2D("ElasticTargetMass", "ElasticTargetMass", 200, -50000, 50000, 100, 0, 1000);
+
+
+    /*fhtheh = new TH2D("theh", "", 100, 0, 1000, 100, 0, 2000);
+    ediff = new TH2D("ediff", "Reconstructed Proton Energy VS Measured Cluster Energy", 100, 0, 300, 100, 0, 300);
+    ediff->GetXaxis()->SetTitle("E_{p'}");
+    ediff->GetYaxis()->SetTitle("E_{cluster}");
+
+    etheta = new TH2D("etheta", "", 100, 0, 1000, 100, -1, 1);
+
+    fhProtonTrack*/
 
     return kSUCCESS;
 }
@@ -180,19 +214,24 @@ void R3BNeulandClusterMon::Exec(Option_t*)
         }
     }
 
-    fVectorClusters.reserve(nClusters);
-    for (UInt_t i = 0; i < nClusters; i++)
-    {
-        const auto cluster = (R3BNeulandCluster*)fNeulandClusters->At(i);
-        // Note: Dereferencing, the vector does contain full objects, not just pointers
-        fVectorClusters.push_back(*cluster);
-    }
-
-    fhClusters->Fill(nClusters);
+    std::vector<R3BNeulandCluster*> clusters;
+    clusters.reserve(nClusters);
     Double_t etot = 0.;
     for (UInt_t i = 0; i < nClusters; i++)
     {
-        const R3BNeulandCluster* cluster = (R3BNeulandCluster*)fNeulandClusters->At(i);
+        const auto cluster = (R3BNeulandCluster*)fNeulandClusters->At(i);
+        etot += cluster->GetE();
+        if (fClusterFilters.IsValid(cluster))
+        {
+            clusters.push_back(cluster);
+        }
+    }
+
+    fhClusterNumberVSEnergy->Fill(etot, nClusters);
+
+    fhClusters->Fill(nClusters);
+    for (const auto cluster : clusters)
+    {
         fhClusterTime->Fill(cluster->GetT());
         fhClusterSize->Fill(cluster->GetSize());
         fhClusterEnergy->Fill(cluster->GetE());
@@ -200,9 +239,7 @@ void R3BNeulandClusterMon::Exec(Option_t*)
         fhClusterEToFVSEnergy->Fill(cluster->GetFirstDigi().GetEToF(), cluster->GetE());
         fhClusterEToFVSTime->Fill(cluster->GetFirstDigi().GetEToF(), cluster->GetT());
         fhClusterEVSTime->Fill(cluster->GetFirstDigi().GetE(), cluster->GetT());
-        etot += cluster->GetE();
 
-        // if(cluster->GetFirstDigi().GetEToF() > 590){
         fhClusterForemostMinusCentroidVSEnergy->Fill(
             (cluster->GetForemostDigi().GetPosition() - cluster->GetEnergyCentroid()).Mag(), cluster->GetE());
 
@@ -218,12 +255,60 @@ void R3BNeulandClusterMon::Exec(Option_t*)
         fhClusterMaxEnergyDigiMinusCentroidVSEnergy->Fill(
             (cluster->GetMaxEnergyDigi().GetPosition() - cluster->GetEnergyCentroid()).Mag(), cluster->GetE());
         fhClusterEnergyMomentVSEnergy->Fill(cluster->GetEnergyMoment(), cluster->GetE());
-        //}
-    }
-    fhClusterNumberVSEnergy->Fill(etot, nClusters);
-}
+        fhClusterEnergyMomentVSClusterSize->Fill(cluster->GetEnergyMoment(), cluster->GetSize());
 
-void R3BNeulandClusterMon::Reset() { fVectorClusters.clear(); }
+        fhClusterEnergyMoment->Fill(cluster->GetEnergyMoment());
+        fhClusterMaxEnergyDigiMinusFirstDigiMag->Fill(
+            (cluster->GetMaxEnergyDigi().GetPosition() - cluster->GetFirstDigi().GetPosition()).Mag());
+    }
+
+    std::sort(clusters.begin(), clusters.end(), [](const R3BNeulandCluster* a, const R3BNeulandCluster* b) {
+        return a->GetT() < b->GetT();
+    });
+
+    for (auto cluster : clusters)
+    {
+        if (cluster->GetSize() >= 3)
+        {
+            fhClusterEnergyVSScatteredRecoilAngle->Fill(cluster->GetE(),
+                                                        std::acos(Neuland::RecoilScatteringAngle(cluster)));
+        }
+    }
+
+    for (auto ita = clusters.cbegin(); ita != clusters.cend(); ita++)
+    {
+        for (auto itb = ita + 1; itb != clusters.cend(); itb++)
+        {
+
+            fhScatteredNEnergyVSAngle->Fill(Neuland::ScatteredNeutronEnergy(*ita, *itb),
+                                            std::acos(Neuland::ScatteredNeutronAngle(*ita, *itb)));
+
+            fhScatteredNEnergyVSEdep->Fill(Neuland::ScatteredNeutronEnergy(*ita, *itb), (*ita)->GetE());
+
+            const Double_t EelasticHeavy = Neuland::NeutronEnergyFromElasticScattering(*ita, *itb, 11000);
+            fhEToFVSEelastic->Fill((*ita)->GetFirstDigi().GetEToF(), EelasticHeavy);
+            //const Double_t EelasticProton = Neuland::NeutronEnergyFromElasticScattering(*ita, *itb, 1000);
+            //fhEToFVSEelastic->Fill((*ita)->GetFirstDigi().GetEToF(), EelasticProton);
+
+            if (Neuland::ScatteredNeutronEnergy(*ita, *itb) > 10.)
+            {
+                fhElasticTargetMass->Fill(Neuland::ElasticScatteringTargetMass(*ita, *itb), (*ita)->GetE());
+                fhClusterEnergyVSScatteredNeutronAngle->Fill((*ita)->GetE(),
+                                                             std::acos(Neuland::ScatteredNeutronAngle(*ita, *itb)));
+
+                if ((*ita)->GetSize() >= 3)
+                {
+                    fhScatterAngleVSRecoilAngle->Fill(std::acos(Neuland::ScatteredNeutronAngle(*ita, *itb)),
+                                                      std::acos(Neuland::RecoilScatteringAngle(*ita)));
+                    fhSumAngleVSRatioErecoEtof->Fill(
+                        std::acos(Neuland::ScatteredNeutronAngle(*ita, *itb)) +
+                            std::acos(Neuland::RecoilScatteringAngle(*ita)),
+                        Neuland::NeutronEnergyFromElasticProtonScattering(*ita) / (*ita)->GetFirstDigi().GetEToF());
+                }
+            }
+        }
+    }
+}
 
 void R3BNeulandClusterMon::Finish()
 {
@@ -241,6 +326,7 @@ void R3BNeulandClusterMon::Finish()
     fhClusterEToF->Write();
     fhClusterEToFVSEnergy->Write();
     fhClusterEToFVSTime->Write();
+    fhElasticTargetMass->Write();
 
     fhClusterForemostMinusCentroidVSEnergy->Write();
     fhClusterForemostMinusMaxEnergyDigiPosVSEnergy->Write();
@@ -248,7 +334,18 @@ void R3BNeulandClusterMon::Finish()
     fhClusterMaxEnergyDigiMinusFirstDigiPosVSEnergy->Write();
     fhClusterMaxEnergyDigiMinusCentroidVSEnergy->Write();
     fhClusterEnergyMomentVSEnergy->Write();
+    fhClusterEnergyMomentVSClusterSize->Write();
     fhClusterEVSTime->Write();
+    fhClusterEnergyMoment->Write();
+    fhClusterMaxEnergyDigiMinusFirstDigiMag->Write();
+
+    fhEToFVSEelastic->Write();
+    fhScatteredNEnergyVSAngle->Write();
+    fhScatteredNEnergyVSEdep->Write();
+    fhScatterAngleVSRecoilAngle->Write();
+    fhSumAngleVSRatioErecoEtof->Write();
+    fhClusterEnergyVSScatteredRecoilAngle->Write();
+    fhClusterEnergyVSScatteredNeutronAngle->Write();
 
     gDirectory = tmp;
 }
