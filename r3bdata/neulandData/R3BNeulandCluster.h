@@ -1,8 +1,8 @@
 #ifndef R3BNEULANDCLUSTER_H
 #define R3BNEULANDCLUSTER_H
 
-#include <vector>
 #include <iostream>
+#include <vector>
 
 #include "TObject.h"
 
@@ -46,6 +46,7 @@ class R3BNeulandCluster : public TObject
     UInt_t GetSize() const { return fDigis.size(); }
     TVector3 GetEnergyCentroid() const;
     Double_t GetEnergyMoment() const;
+
 
   protected:
     std::vector<R3BNeulandDigi> fDigis;

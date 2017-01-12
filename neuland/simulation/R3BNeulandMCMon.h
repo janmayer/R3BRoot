@@ -3,7 +3,7 @@
  * @since  07.07.2015
  *
  *  Input:  Monte Carlo Tracks "MCTrack".
- *  Output: Several histogramms:
+ *  Output: Several histograms:
  *          - Energy of primary neutrons
  *          - Number of particles by PDG code created by the first neutron interaction
  *          - Energy of non-neutron tracks in kLAND created by primary neutron interaction(s), by PID
@@ -12,6 +12,12 @@
  *          - Total energy of non-neutron tracks in kLAND created by primary neutron interaction(s), by PID
  *          - IDs of tracks with a primary mother
  *          - Distribution of track mother IDs
+ *          - ...
+ *          - Option FULLSIMANA: Create histograms for reactions products of primary neutron interactions
+ *            Grouped by Pdg, Reaction and Reaction&Pdg (several 1000 histograms)
+ *          - Option 3DTRACK: Prepare 3D Histogram for each event.
+ *  Usage:  run->AddTask(new R3BNeulandMCMon("FULLSIMANA"));
+ *          Requires MCTracks, NeulandPoints and NPNIPS from R3BNeuland simulation.
  */
 
 #ifndef R3BNEULANDMCMON_H
@@ -31,14 +37,14 @@ class R3BNeulandMCMon : public FairTask
 {
   public:
     R3BNeulandMCMon(const Option_t* option = "");
-    ~R3BNeulandMCMon();
 
-    InitStatus Init();
-    void Exec(Option_t* option);
-    void Finish();
+    InitStatus Init() override;
+    void Exec(Option_t* option) override;
+    void Finish() override;
 
   private:
     Bool_t fIs3DTrackEnabled;
+    Bool_t fIsFullSimAnaEnabled;
 
     TClonesArray* fMCTracks;
     TClonesArray* fNeulandPoints;
@@ -59,6 +65,16 @@ class R3BNeulandMCMon : public FairTask
     std::map<Int_t, TH1D*> fhmEPdg;
     std::map<Int_t, TH1D*> fhmEtotPdg;
     std::map<Int_t, TH1D*> fhmEtotPdgRel;
+
+    std::map<Int_t, TH1D*> fhmEnergyByProductPdg;
+    std::map<TString, TH1D*> fhmEnergyByReaction;
+    std::map<TString, std::map<Int_t, TH1D*>> fhmmEnergyByReactionByProductPdg;
+    TH1D* fhnProducts;
+    TH1D* fhnProductsCharged;
+    TH1D* fhSumProductEnergy;
+    TH1D* fhnSecondaryProtons;
+    TH1D* fhnSecondaryNeutrons;
+
     TH3D* fh3;
 
     // TODO: Thats not the business of this class, should be in R3BMCTrack
@@ -97,7 +113,7 @@ class R3BNeulandMCMon : public FairTask
         return (mcTrack->GetEnergy() - mcTrack->GetMass()) * 1000.;
     }
 
-    ClassDef(R3BNeulandMCMon, 0)
+    ClassDefOverride(R3BNeulandMCMon, 0)
 };
 
 #endif // R3BNEULANDMCMON_H

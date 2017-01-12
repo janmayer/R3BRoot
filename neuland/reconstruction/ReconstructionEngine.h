@@ -1,20 +1,37 @@
 #ifndef NEULANDRECONSTRUCTIONENGINEH
 #define NEULANDRECONSTRUCTIONENGINEH
 
-#include <vector>
-#include "R3BNeulandNeutron.h"
+#include "Filterable.h"
 #include "R3BNeulandCluster.h"
+#include "R3BNeulandNeutron.h"
+#include "ReconstructionOperation.h"
+#include <memory>
+#include <vector>
 
 namespace Neuland
 {
-    // abstract class, cannot be instantiated, but can be used as a base class.
     class ReconstructionEngine
     {
       public:
-        virtual void Init() = 0;
-        virtual std::vector<R3BNeulandNeutron> GetNeutrons(const std::vector<R3BNeulandCluster*>&) const = 0;
+        using Op = std::shared_ptr<Neuland::ReconstructionOperation>;
 
-        virtual ~ReconstructionEngine() {}
+        ReconstructionEngine() = default;
+        ~ReconstructionEngine() = default;
+        ReconstructionEngine(const ReconstructionEngine&) = default;            // copy constructor
+        ReconstructionEngine(ReconstructionEngine&&) = default;                 // move constructor
+        ReconstructionEngine& operator=(const ReconstructionEngine&) = default; // copy assignment
+        ReconstructionEngine& operator=(ReconstructionEngine&&) = default;      // move assignment
+
+        void Init();
+        // Copy, will be modified inside
+        std::vector<R3BNeulandNeutron> GetNeutrons(std::vector<R3BNeulandCluster*>) const;
+
+        inline void AddOperation(const Op& op) { fOps.push_back(op); }
+
+        inline void AddOperation(Neuland::ReconstructionOperation* op) { fOps.push_back(Op(op)); }
+
+      private:
+        std::vector<Op> fOps;
     };
 }
 

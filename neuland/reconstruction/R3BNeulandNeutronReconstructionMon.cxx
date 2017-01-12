@@ -144,11 +144,11 @@ InitStatus R3BNeulandNeutronReconstructionMon::Init()
         new TH1D("fhCountNdiff", "Number of reacted primary Neutrons - Number of reconstructed Neutrons", 11, -5, 5);
     fhEdiff = new TH1D("fhEdiff", "Energy of primary Neutron - Energy of reconstructed Neutron", 2001, -1000, 1000);
 
-    fhErel = new TH1D("fhErel", "fhErel", 1001, 0, 10);
-    fhErelMC = new TH1D("fhErelMC", "fhErelMC", 1001, 0, 10);
-    fhErelVSnNreco = new TH2D("fhErelVSnNreco", "fhErelVSnNreco", 1000, 0, 5, 11, -0.5, 10.5);
+    fhErel = new TH1D("fhErel", "fhErel", 5000, 0, 5000);
+    fhErelMC = new TH1D("fhErelMC", "fhErelMC", 5000, 0, 5000);
+    fhErelVSnNreco = new TH2D("fhErelVSnNreco", "fhErelVSnNreco", 5000, 0, 5000, 11, -0.5, 10.5);
 
-    fhErelVSnNrecoNPNIPs = new TH2D("fhErelVSnNrecoNPNIPs", "fhErelVSnNrecoNPNIPs", 1000, 0, 5, 11, -0.5, 10.5);
+    fhErelVSnNrecoNPNIPs = new TH2D("fhErelVSnNrecoNPNIPs", "fhErelVSnNrecoNPNIPs", 5000, 0, 5000, 11, -0.5, 10.5);
 
     fhNreacNreco = new TH2D("fhNreacNreco", "fhNreacNreco", 11, -0.5, 10.5, 11, -0.5, 10.5);
     fhNreacNreco->GetXaxis()->SetTitle("nReac");
@@ -283,14 +283,19 @@ void R3BNeulandNeutronReconstructionMon::Exec(Option_t*)
         }
 
         const Double_t minv = p4_reco.Mag() - m0_reco;
-        fhErel->Fill(minv);
-        fhErelVSnNreco->Fill(minv, nReconstructedNeutrons);
+        fhErel->Fill(minv*1000.);
+        fhErelVSnNreco->Fill(minv*1000., nReconstructedNeutrons);
+
+        if(fhmErelnReco[nReconstructedNeutrons] == nullptr){
+            fhmErelnReco[nReconstructedNeutrons] = new TH1D("fhErel" + TString::Itoa(nReconstructedNeutrons, 10), "fhErel" + TString::Itoa(nReconstructedNeutrons, 10), 5000, 0, 5000);
+        }
+        fhmErelnReco.at(nReconstructedNeutrons)->Fill(minv*1000.);
 
         const Double_t minv_mc = p4_mc.Mag() - m0_mc;
-        fhErelMC->Fill(minv_mc);
+        fhErelMC->Fill(minv_mc*1000.);
 
         const Double_t minv_npnips = p4_npnips.Mag() - m0_npnips;
-        fhErelVSnNrecoNPNIPs->Fill(minv_npnips, nNPNIPS);
+        fhErelVSnNrecoNPNIPs->Fill(minv_npnips*1000., nNPNIPS);
     }
 }
 
@@ -311,6 +316,10 @@ void R3BNeulandNeutronReconstructionMon::Finish()
     fhErelVSnNreco->Write();
     fhErelVSnNrecoNPNIPs->Write();
     fhNreacNreco->Write();
+
+    for (auto& nh : fhmErelnReco){
+        nh.second->Write();
+    }
 
     gDirectory = tmp;
 }

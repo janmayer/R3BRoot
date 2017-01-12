@@ -41,27 +41,29 @@ class R3BNeuland : public R3BDetector
     /** Default Destructor */
     ~R3BNeuland();
 
-    virtual void Initialize(); // override;
+    virtual void Initialize() override;
 
-    virtual Bool_t ProcessHits(FairVolume* = nullptr); // override;
+    virtual Bool_t ProcessHits(FairVolume* = nullptr) override;
 
-    virtual void EndOfEvent(); // override;
+    virtual void EndOfEvent() override;
 
-    virtual void Register(); // override;
+    virtual void Register() override;
 
-    virtual TClonesArray* GetCollection(Int_t iColl) const; // override;
+    virtual TClonesArray* GetCollection(Int_t iColl) const override;
 
-    virtual void Print(Option_t* = "") const; // override;
+    virtual void Print(Option_t* = "") const override;
 
-    virtual void Reset(); // override;
+    virtual void Reset() override;
 
-    virtual void PostTrack(); // override;
+    virtual void ConstructGeometry() override;
 
-    virtual Bool_t CheckIfSensitive(std::string name); // override;
+    virtual void PostTrack() override;
+
+    virtual Bool_t CheckIfSensitive(std::string name) override;
 
     /** May not be copy constructed */
-    // R3BNeuland(const R3BNeuland &) = delete;
-    // R3BNeuland &operator=(const R3BNeuland &) = delete;
+    R3BNeuland(const R3BNeuland&) = delete;
+    R3BNeuland& operator=(const R3BNeuland&) = delete;
 
   private:
     TClonesArray* fNeulandPoints;                          //!
@@ -87,8 +89,7 @@ class R3BNeuland : public R3BDetector
 
     void WriteParameterFile();
 
-    // ClassDefOverride(R3BNeuland, 0);
-    ClassDef(R3BNeuland, 2);
+    ClassDefOverride(R3BNeuland, 3);
 };
 
 #endif // R3BNEULAND_H
